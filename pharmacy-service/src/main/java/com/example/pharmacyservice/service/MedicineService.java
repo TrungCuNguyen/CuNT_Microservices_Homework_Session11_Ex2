@@ -5,6 +5,7 @@ import com.example.pharmacyservice.repository.MedicineRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +29,35 @@ public class MedicineService {
         log.info(">>> [DATABASE QUERY] Truy vấn trực tiếp từ PostgreSQL Database cho thuốc có ID = {}", id);
         return medicineRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy thuốc với ID: " + id));
+    }
+
+    /**
+     * Cập nhật thông tin thuốc (ví dụ cập nhật giá thuốc).
+     * @CacheEvict(value = "medicines", key = "#medicine.id"):
+     * - Khi một loại thuốc được sửa giá, Cache cũ (key "medicines::#medicine.id") phải bị xóa ngay lập tức
+     *   khỏi Redis để lần truy vấn sau hệ thống sẽ lấy giá mới nhất từ Database.
+     */
+    @CacheEvict(value = "medicines", key = "#medicine.id")
+    public Medicine updateMedicine(Medicine medicine) {
+        log.info(">>> [DATABASE UPDATE] Cập nhật thông tin thuốc ID = {} vào Database và xóa Cache cũ trong Redis", medicine.getId());
+
+        Medicine existing = medicineRepository.findById(medicine.getId())
+                .orElseGet(() -> medicine);
+
+        if (medicine.getPrice() != null) {
+            existing.setPrice(medicine.getPrice());
+        }
+        if (medicine.getMedicineName() != null) {
+            existing.setMedicineName(medicine.getMedicineName());
+        }
+        if (medicine.getDescription() != null) {
+            existing.setDescription(medicine.getDescription());
+        }
+        if (medicine.getQuantity() != null) {
+            existing.setQuantity(medicine.getQuantity());
+        }
+
+        return medicineRepository.save(existing);
     }
 }
 

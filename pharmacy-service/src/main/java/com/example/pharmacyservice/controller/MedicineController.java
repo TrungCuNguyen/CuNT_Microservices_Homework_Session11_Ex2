@@ -44,5 +44,60 @@ public class MedicineController {
 
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * API cập nhật thông tin / giá thuốc:
+     * PUT http://localhost:8080/api/pharmacy/medicines/{id}
+     * Kích hoạt @CacheEvict(value = "medicines", key = "#medicine.id")
+     * Xóa sạch cache cũ trong Redis để lần truy vấn sau lấy giá mới nhất từ Database.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> updateMedicine(
+            @PathVariable Long id,
+            @RequestBody(required = false) Medicine updateData,
+            @RequestParam(name = "price", required = false) Double queryPrice) {
+
+        if (updateData == null) {
+            updateData = new Medicine();
+        }
+        updateData.setId(id);
+        if (queryPrice != null) {
+            updateData.setPrice(queryPrice);
+        }
+
+        Medicine updated = medicineService.updateMedicine(updateData);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "SUCCESS");
+        response.put("action", "CACHE_EVICTED");
+        response.put("message", "Cập nhật thuốc thành công! Key 'medicines::" + id + "' đã bị xóa khỏi Redis Cache.");
+        response.put("medicine", updated);
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * API chuyên biệt cập nhật giá thuốc nhanh qua Query Param:
+     * PUT http://localhost:8080/api/pharmacy/medicines/{id}/price?price=65000
+     */
+    @PutMapping("/{id}/price")
+    public ResponseEntity<Map<String, Object>> updatePrice(
+            @PathVariable Long id,
+            @RequestParam Double price) {
+
+        Medicine med = new Medicine();
+        med.setId(id);
+        med.setPrice(price);
+
+        Medicine updated = medicineService.updateMedicine(med);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "SUCCESS");
+        response.put("action", "CACHE_EVICTED");
+        response.put("message", "Cập nhật giá thuốc thành công! Cache 'medicines::" + id + "' đã được xóa.");
+        response.put("medicine", updated);
+
+        return ResponseEntity.ok(response);
+    }
 }
 

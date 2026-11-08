@@ -12,19 +12,21 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 public class RedisConfig {
 
     /**
      * Cấu hình RedisCacheManager để lưu dữ liệu Cache dưới dạng JSON,
-     * giúp giảm tải cho Database và tối ưu hiệu năng tìm kiếm.
+     * Cấu hình TTL cho Cache medicines là 60 phút theo đúng yêu cầu đề bài.
      */
     @Bean
     @ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis", matchIfMissing = true)
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        RedisCacheConfiguration cacheConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofMinutes(10))
+        RedisCacheConfiguration defaultCacheConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(60)) // TTL 60 phút
                 .disableCachingNullValues()
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer())
@@ -33,8 +35,12 @@ public class RedisConfig {
                         RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())
                 );
 
+        Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
+        cacheConfigurations.put("medicines", defaultCacheConfig.entryTtl(Duration.ofMinutes(60)));
+
         return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(cacheConfig)
+                .cacheDefaults(defaultCacheConfig)
+                .withInitialCacheConfigurations(cacheConfigurations)
                 .build();
     }
 
